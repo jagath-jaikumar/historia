@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 from typing import List, Set, Dict, Any
 from dataclasses import dataclass
 import yaml
-from sentence_transformers import SentenceTransformer
 from historia.ml.embedder import Embedder
 from historia.data.core.snipper import Snipper
+
 
 @dataclass
 class TextDocument:

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
+
 class Embedder(ABC):
     """Abstract class for embedding text."""
 
@@ -8,6 +9,7 @@ class Embedder(ABC):
     def embed(self, texts: List[str]) -> List[List[float]]:
         """Embed a list of texts and return a list of embeddings."""
         pass
+
 
 class DummyEmbedder(Embedder):
     """Dummy embedder for testing."""

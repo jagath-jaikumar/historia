@@ -4,18 +4,18 @@ from historia.django.utils import initialize_django
 
 initialize_django()
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Run a DataSource ingestion and indexing pipeline.")
+    parser = argparse.ArgumentParser(
+        description="Run a DataSource ingestion and indexing pipeline."
+    )
     parser.add_argument(
-        "--config",
-        type=str,
-        required=True,
-        help="Path to the YAML configuration file."
+        "--config", type=str, required=True, help="Path to the YAML configuration file."
     )
     parser.add_argument(
         "--no-db",
         action="store_true",
-        help="Log database transactions instead of executing them."
+        help="Log database transactions instead of executing them.",
     )
     args = parser.parse_args()
 

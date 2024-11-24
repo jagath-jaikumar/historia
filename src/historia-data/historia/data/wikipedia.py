@@ -1,7 +1,14 @@
 from typing import List, Dict, Any, Set
 from historia.data.core.base import DataSource, TextDocument
 from django.db import transaction
-from historia.indexing.models import WikipediaDocument, Index, Embedding, IndexedDocumentSnippet
+from historia.indexing.models import (
+    WikipediaDocument,
+    Index,
+    Embedding,
+    IndexedDocumentSnippet,
+)
+from historia.data.core.snipper import Snipper
+from historia.ml.embedder import Embedder
 
 
 class WikipediaDataSource(DataSource):
@@ -10,7 +17,7 @@ class WikipediaDataSource(DataSource):
     def __init__(self, params: Dict[str, Any]):
         """
         Initialize the WikipediaDataSource with parameters.
-        
+
         Args:
             params (Dict[str, Any]): Dictionary containing configuration parameters.
                 - base_url (str): The base URL for Wikipedia (e.g., "https://en.wikipedia.org/wiki").
@@ -29,7 +36,7 @@ class WikipediaDataSource(DataSource):
     def urls_to_text_documents(self, urls: List[str]) -> Set[TextDocument]:
         """
         Convert URLs to a set of TextDocuments.
-        
+
         Simulates content fetching for demonstration purposes.
         """
         documents = set()
@@ -37,10 +44,16 @@ class WikipediaDataSource(DataSource):
             # Simulated content fetching for demonstration purposes
             content = f"Content fetched from {url}"
             title = url.split("/")[-1].replace("_", " ").title()
-            documents.add(TextDocument(title=title, content=content, metadata={"url": url}, url=url))
+            documents.add(
+                TextDocument(
+                    title=title, content=content, metadata={"url": url}, url=url
+                )
+            )
         return documents
 
-    def write_documents_to_database(self, documents: Set[TextDocument], no_db: bool = False):
+    def write_documents_to_database(
+        self, documents: Set[TextDocument], no_db: bool = False
+    ):
         """
         Write TextDocuments to the database or log transactions if `no_db` is True.
 
@@ -63,10 +76,12 @@ class WikipediaDataSource(DataSource):
                         },
                     )
 
-    def index_documents(self, index_name: str, snipper: "Snipper", embedder: "Embedder", no_db: bool = False):
+    def index_documents(
+        self, index_name: str, snipper: Snipper, embedder: Embedder, no_db: bool = False
+    ):
         """
         Embed document snippets and write them to the database or log transactions if `no_db` is True.
-        
+
         Args:
             index_name (str): The name of the index.
             snipper (Snipper): A Snipper object to generate snippets from document content.
@@ -76,7 +91,9 @@ class WikipediaDataSource(DataSource):
         if no_db:
             print(f"[NO-DB] Would index documents in index: {index_name}")
         else:
-            index, _ = Index.objects.get_or_create(name=index_name, defaults={"dimensions": 768})
+            index, _ = Index.objects.get_or_create(
+                name=index_name, defaults={"dimensions": 768}
+            )
             documents = WikipediaDocument.objects.all()
 
             with transaction.atomic():

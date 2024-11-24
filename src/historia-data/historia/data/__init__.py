@@ -1,5 +1,6 @@
 import logging
 
+
 class EntryPoint:
     """Entry point to manage DataSource ingestion and indexing pipelines."""
 
@@ -26,23 +27,31 @@ class EntryPoint:
         self.logger.info(f"Starting pipeline for index: {index_name}")
         for attempt in range(1, self.max_retries + 1):
             try:
-                self.logger.info(f"[Attempt {attempt}/{self.max_retries}] Generating URLs...")
+                self.logger.info(
+                    f"[Attempt {attempt}/{self.max_retries}] Generating URLs..."
+                )
                 urls = data_source.generate_urls()
                 self.logger.info(f"Generated {len(urls)} URLs.")
 
-                self.logger.info(f"[Attempt {attempt}/{self.max_retries}] Converting URLs to TextDocuments...")
+                self.logger.info(
+                    f"[Attempt {attempt}/{self.max_retries}] Converting URLs to TextDocuments..."
+                )
                 documents = data_source.urls_to_text_documents(urls)
                 self.logger.info(f"Converted {len(documents)} TextDocuments.")
 
-                self.logger.info(f"[Attempt {attempt}/{self.max_retries}] Writing TextDocuments to database...")
+                self.logger.info(
+                    f"[Attempt {attempt}/{self.max_retries}] Writing TextDocuments to database..."
+                )
                 data_source.write_documents_to_database(documents, no_db=no_db)
                 self.logger.info(f"Successfully processed {len(documents)} documents.")
 
-                self.logger.info(f"[Attempt {attempt}/{self.max_retries}] Indexing documents...")
+                self.logger.info(
+                    f"[Attempt {attempt}/{self.max_retries}] Indexing documents..."
+                )
                 data_source.index_documents(index_name, snipper, embedder, no_db=no_db)
                 self.logger.info("Indexing completed successfully.")
 
-                self.logger.info(f"Pipeline completed successfully.")
+                self.logger.info("Pipeline completed successfully.")
                 break
             except Exception as e:
                 self.logger.error(f"Error during pipeline execution: {e}")
