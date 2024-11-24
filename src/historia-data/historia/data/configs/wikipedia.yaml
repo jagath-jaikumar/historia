@@ -11,8 +11,6 @@ snipper:
     snippet_length: 300
 
 embedder:
-  type: sentence-transformer
-  params:
-    model_name: "all-MiniLM-L6-v2"
+  type: dummy
 
 index_name: wiki-index

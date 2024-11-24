@@ -6,15 +6,18 @@ from historia.ml.embedder import Embedder
 from historia.data.core.snipper import Snipper
 
 
-@dataclass
+@dataclass(frozen=True)
 class TextDocument:
     title: str
     content: str
     metadata: Dict[str, Any]
     url: str
 
+    def __hash__(self) -> int:
+        return hash(self.url)
 
-@dataclass
+
+@dataclass(frozen=True)
 class YAMLConfig:
     source_name: str
     base_url: str

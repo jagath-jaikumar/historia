@@ -1,12 +1,20 @@
+from historia.django.utils import initialize_django
+
+initialize_django()
+
+
 import logging
 from typing import Dict, Type
 import yaml
+import os
 
 from historia.data.core.base import DataSource, Snipper
 from historia.data.wikipedia import WikipediaDataSource
 from historia.ml.embedder import Embedder, DummyEmbedder # type: ignore
 from historia.data.core.snipper import SimpleSnipper
 
+CONFIG_ROOT = "src/historia-data/historia/data/configs"
+YAML_FILE_EXTENSION = ".yaml"
 
 class EntryPoint:
     """Entry point to manage DataSource ingestion and indexing pipelines."""
@@ -38,7 +46,7 @@ class EntryPoint:
 
     def load_config(self, config_path: str) -> Dict:
         """Loads the YAML configuration file."""
-        with open(config_path, "r") as file:
+        with open(os.path.join(CONFIG_ROOT, config_path + YAML_FILE_EXTENSION), "r") as file:
             config = yaml.safe_load(file)
         self.logger.info(f"Configuration loaded from {config_path}.")
         return config
@@ -116,7 +124,7 @@ class EntryPoint:
                 self.logger.info("Pipeline completed successfully.")
                 break
             except Exception as e:
-                self.logger.error(f"Error during pipeline execution: {e}")
+                self.logger.exception(f"Error during pipeline execution: {e}")
                 if attempt == self.max_retries:
                     self.logger.critical("Pipeline failed after maximum retries.")
                     raise Exception("Pipeline execution failed.") from e
