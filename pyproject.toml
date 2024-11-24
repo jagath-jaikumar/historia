@@ -15,7 +15,13 @@ dj-database-url = "^2.3.0"
 
 # First party apps
 historia-indexing = { path = "apps/historia_indexing", develop = true }
+historia-django-utils = { path = "src/historia-django-utils", develop = true }
+historia-ml = { path = "src/historia-ml", develop = true }
+
 djangorestframework = "^3.15.2"
+
+[tool.poetry.group.data.dependencies]
+historia-data = { path = "src/historia-data", develop = true }
 
 [tool.poetry.group.serve.dependencies]
 gunicorn = "*"

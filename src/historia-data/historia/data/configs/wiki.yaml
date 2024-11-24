@@ -1,0 +1,18 @@
+data_source: wikipedia
+data_source_params:
+  base_url: "https://en.wikipedia.org/wiki"
+  topics:
+    - Artificial_intelligence
+    - Machine_learning
+
+snipper:
+  type: simple
+  params:
+    snippet_length: 300
+
+embedder:
+  type: sentence-transformer
+  params:
+    model_name: "all-MiniLM-L6-v2"
+
+index_name: wiki-index
