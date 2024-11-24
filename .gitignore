@@ -167,3 +167,4 @@ cython_debug/
 staticfiles/
 
 src/historia-ml/poetry.lock
+src/historia-django-utils/poetry.lock
