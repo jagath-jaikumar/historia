@@ -1,7 +1,7 @@
 import datetime
 import logging
 import os
-from typing import Dict, Type, List, Callable, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import apache_beam as beam
 import yaml
@@ -36,7 +36,7 @@ def default_failure_callback(failed_urls: List[str], error: Exception, step: str
 class GenerateUrlsFn(beam.DoFn):
     def __init__(self, data_source: DataSource):
         self.data_source = data_source
-        
+
     def process(self, _):
         urls = self.data_source.generate_urls()
         for url in urls:
@@ -46,47 +46,52 @@ class GenerateUrlsFn(beam.DoFn):
 class UrlToDocumentFn(beam.DoFn):
     def __init__(self, data_source: DataSource):
         self.data_source = data_source
-        
+
     def process(self, url):
         try:
             docs = self.data_source.urls_to_text_documents([url])
             for doc in docs:
-                yield beam.pvalue.TaggedOutput('success', doc)
+                yield beam.pvalue.TaggedOutput("success", doc)
         except Exception as e:
-            yield beam.pvalue.TaggedOutput('failed', (url, str(e)))
+            yield beam.pvalue.TaggedOutput("failed", (url, str(e)))
 
 
 class WriteToDBFn(beam.DoFn):
     def __init__(self, data_source: DataSource, no_db: bool):
         self.data_source = data_source
         self.no_db = no_db
-        
+
     def process(self, doc):
         try:
             self.data_source.write_documents_to_database({doc}, no_db=self.no_db)
-            yield beam.pvalue.TaggedOutput('success', doc)
+            yield beam.pvalue.TaggedOutput("success", doc)
         except Exception as e:
-            yield beam.pvalue.TaggedOutput('failed', (doc.url, str(e)))
+            yield beam.pvalue.TaggedOutput("failed", (doc.url, str(e)))
 
 
 class IndexDocumentFn(beam.DoFn):
-    def __init__(self, data_source: DataSource, index_name: str, 
-                 snipper: Snipper, embedder: Embedder, no_db: bool):
+    def __init__(
+        self,
+        data_source: DataSource,
+        index_name: str,
+        snipper: Snipper,
+        embedder: Embedder,
+        no_db: bool,
+    ):
         self.data_source = data_source
         self.index_name = index_name
         self.snipper = snipper
         self.embedder = embedder
         self.no_db = no_db
-        
+
     def process(self, doc):
         try:
             self.data_source.index_documents(
-                self.index_name, self.snipper, self.embedder, 
-                no_db=self.no_db, doc=doc
+                self.index_name, self.snipper, self.embedder, no_db=self.no_db, doc=doc
             )
-            yield beam.pvalue.TaggedOutput('success', doc.url)
+            yield beam.pvalue.TaggedOutput("success", doc.url)
         except Exception as e:
-            yield beam.pvalue.TaggedOutput('failed', (doc.url, str(e)))
+            yield beam.pvalue.TaggedOutput("failed", (doc.url, str(e)))
 
 
 class EntryPoint:
@@ -104,7 +109,9 @@ class EntryPoint:
         "dummy": DummyEmbedder,
     }
 
-    def __init__(self, max_retries: int = 3, failure_callback: Optional[Callable] = None):
+    def __init__(
+        self, max_retries: int = 3, failure_callback: Optional[Callable] = None
+    ):
         self.max_retries = max_retries
         self.failure_callback = failure_callback or default_failure_callback
         self.logger = logging.getLogger("DataSourcePipeline")
@@ -116,7 +123,9 @@ class EntryPoint:
 
     def load_config(self, config_path: str) -> Dict:
         """Loads the YAML configuration file."""
-        with open(os.path.join(CONFIG_ROOT, config_path + YAML_FILE_EXTENSION), "r") as file:
+        with open(
+            os.path.join(CONFIG_ROOT, config_path + YAML_FILE_EXTENSION), "r"
+        ) as file:
             config = yaml.safe_load(file)
         self.logger.info(f"Configuration loaded from {config_path}.")
         return config
@@ -175,45 +184,58 @@ class EntryPoint:
 
         with beam.Pipeline(options=pipeline_options) as p:
             # Generate URLs
-            urls = (p 
-                   | 'Create' >> beam.Create([None])
-                   | 'Generate URLs' >> beam.ParDo(GenerateUrlsFn(data_source)))
+            urls = (
+                p
+                | "Create" >> beam.Create([None])
+                | "Generate URLs" >> beam.ParDo(GenerateUrlsFn(data_source))
+            )
 
             # Convert URLs to documents
-            url_results = urls | 'URLs to Documents' >> beam.ParDo(
+            url_results = urls | "URLs to Documents" >> beam.ParDo(
                 UrlToDocumentFn(data_source)
-            ).with_outputs('success', 'failed')
-            
+            ).with_outputs("success", "failed")
+
             documents = url_results.success
-            url_failures = url_results.failed | 'Collect URL Failures' >> beam.transforms.combiners.ToList()
+            url_failures = (
+                url_results.failed
+                | "Collect URL Failures" >> beam.transforms.combiners.ToList()
+            )
 
             # Write documents to database
-            db_results = documents | 'Write to DB' >> beam.ParDo(
+            db_results = documents | "Write to DB" >> beam.ParDo(
                 WriteToDBFn(data_source, no_db)
-            ).with_outputs('success', 'failed')
-            
+            ).with_outputs("success", "failed")
+
             successful_docs = db_results.success
-            db_failures = db_results.failed | 'Collect DB Failures' >> beam.transforms.combiners.ToList()
+            db_failures = (
+                db_results.failed
+                | "Collect DB Failures" >> beam.transforms.combiners.ToList()
+            )
 
             # Index documents
-            index_results = successful_docs | 'Index Documents' >> beam.ParDo(
+            index_results = successful_docs | "Index Documents" >> beam.ParDo(
                 IndexDocumentFn(data_source, index_name, snipper, embedder, no_db)
-            ).with_outputs('success', 'failed')
-            
-            index_failures = index_results.failed | 'Collect Index Failures' >> beam.transforms.combiners.ToList()
+            ).with_outputs("success", "failed")
+
+            index_failures = (
+                index_results.failed
+                | "Collect Index Failures" >> beam.transforms.combiners.ToList()
+            )
 
             # Handle failures after pipeline completion
             def handle_all_failures(url_fails, db_fails, index_fails):
                 self.handle_failures(url_fails, "url_to_documents")
                 self.handle_failures(db_fails, "write_documents")
                 self.handle_failures(index_fails, "indexing")
-                
+
                 total_failures = len(url_fails) + len(db_fails) + len(index_fails)
                 if total_failures > 0:
                     self.logger.info("Pipeline completed with some failures")
                 else:
                     self.logger.info("Pipeline completed successfully")
 
-            _ = ((url_failures, db_failures, index_failures)
-                 | 'Combine Failures' >> beam.CoGroupByKey()
-                 | 'Handle Failures' >> beam.Map(lambda x: handle_all_failures(*x)))
+            _ = (
+                (url_failures, db_failures, index_failures)
+                | "Combine Failures" >> beam.CoGroupByKey()
+                | "Handle Failures" >> beam.Map(lambda x: handle_all_failures(*x))
+            )

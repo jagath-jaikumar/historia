@@ -51,7 +51,10 @@ class WikipediaDataSource(DataSource):
             for c in categorymembers.values():
                 if c.ns == wikipediaapi.Namespace.MAIN and c.exists():
                     results.add(c)
-                    page_url_to_content[f"{PAGE_ID_URL_BASE}{c.pageid}"] = (c.title, c.text)
+                    page_url_to_content[f"{PAGE_ID_URL_BASE}{c.pageid}"] = (
+                        c.title,
+                        c.text,
+                    )
                 elif c.ns == wikipediaapi.Namespace.CATEGORY and level < max_level:
                     get_categorymembers(
                         c.categorymembers,
@@ -65,9 +68,7 @@ class WikipediaDataSource(DataSource):
         def process_category(category):
             cat = wiki_wiki.page(category)
             main_pages = get_categorymembers(cat.categorymembers)
-            return [
-                f"{PAGE_ID_URL_BASE}{page.pageid}" for page in main_pages
-            ]
+            return [f"{PAGE_ID_URL_BASE}{page.pageid}" for page in main_pages]
 
         with ThreadPoolExecutor() as executor:
             url_lists = list(executor.map(process_category, self.categories))
@@ -80,6 +81,7 @@ class WikipediaDataSource(DataSource):
         Convert URLs to a set of TextDocuments.
         """
         documents = set()
+
         def create_document(url):
             title, content = page_url_to_content[url]
             return TextDocument(
