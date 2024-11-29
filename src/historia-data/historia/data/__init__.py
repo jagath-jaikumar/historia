@@ -1,20 +1,23 @@
+import concurrent.futures 
+import logging  
+import os 
+from typing import Dict, Type 
+
+import yaml 
+
 from historia.django.utils import initialize_django
 
 initialize_django()
 
+from historia.data.core.base import DataSource, Snipper # noqa E402
+from historia.data.core.snipper import SimpleSnipper # noqa E402
+from historia.data.wikipedia import WikipediaDataSource # noqa E402
+from historia.ml.embedder import DummyEmbedder, Embedder  # noqa E402
 
-import logging
-from typing import Dict, Type
-import yaml
-import os
-
-from historia.data.core.base import DataSource, Snipper
-from historia.data.wikipedia import WikipediaDataSource
-from historia.ml.embedder import Embedder, DummyEmbedder # type: ignore
-from historia.data.core.snipper import SimpleSnipper
-
-CONFIG_ROOT = "src/historia-data/historia/data/configs"
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONFIG_ROOT = os.path.join(HERE, "configs")
 YAML_FILE_EXTENSION = ".yaml"
+
 
 class EntryPoint:
     """Entry point to manage DataSource ingestion and indexing pipelines."""
@@ -46,7 +49,9 @@ class EntryPoint:
 
     def load_config(self, config_path: str) -> Dict:
         """Loads the YAML configuration file."""
-        with open(os.path.join(CONFIG_ROOT, config_path + YAML_FILE_EXTENSION), "r") as file:
+        with open(
+            os.path.join(CONFIG_ROOT, config_path + YAML_FILE_EXTENSION), "r"
+        ) as file:
             config = yaml.safe_load(file)
         self.logger.info(f"Configuration loaded from {config_path}.")
         return config
@@ -106,7 +111,16 @@ class EntryPoint:
                 self.logger.info(
                     f"[Attempt {attempt}/{self.max_retries}] Converting URLs to TextDocuments..."
                 )
-                documents = data_source.urls_to_text_documents(urls)
+                # Use ThreadPoolExecutor for parallel processing of URLs
+                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+                    # Process URLs in parallel and gather results
+                    document_sets = list(
+                        executor.map(
+                            data_source.urls_to_text_documents, [[url] for url in urls]
+                        )
+                    )
+                    # Combine all document sets
+                    documents = set().union(*document_sets)
                 self.logger.info(f"Converted {len(documents)} TextDocuments.")
 
                 self.logger.info(

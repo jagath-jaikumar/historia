@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import List, Set, Dict, Any
 from dataclasses import dataclass
+from typing import Any, Dict, List, Set
+
 import yaml
-from historia.ml.embedder import Embedder
+
 from historia.data.core.snipper import Snipper
+from historia.ml.embedder import Embedder
 
 
 @dataclass(frozen=True)

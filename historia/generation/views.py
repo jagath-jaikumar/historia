@@ -1,4 +1,5 @@
-from rest_framework import viewsets, serializers
+from rest_framework import serializers, viewsets
+
 from .models import Generation, Question
 
 

@@ -1,5 +1,6 @@
-import httpx
 import os
+
+import httpx
 
 HISTORIA_ASK_URL = os.getenv("HISTORIA_ASK_URL", "http://localhost:8000/")
 

@@ -1,5 +1,6 @@
-from .__init__ import EntryPoint
 import argparse
+
+from .__init__ import EntryPoint
 
 
 def main():
@@ -7,7 +8,11 @@ def main():
         description="Run a DataSource ingestion and indexing pipeline."
     )
     parser.add_argument(
-        "--config", "-c", type=str, required=True, help="Path to the YAML configuration file."
+        "--config",
+        "-c",
+        type=str,
+        required=True,
+        help="Path to the YAML configuration file.",
     )
     parser.add_argument(
         "--no-db",

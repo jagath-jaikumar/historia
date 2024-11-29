@@ -1,9 +1,9 @@
 data_source: wikipedia
 data_source_params:
   base_url: "https://en.wikipedia.org/wiki"
-  topics:
-    - Artificial_intelligence
-    - Machine_learning
+  categories:
+    - Category:American Revolution
+  depth: 1
 
 snipper:
   type: simple

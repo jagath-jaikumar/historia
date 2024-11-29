@@ -1,14 +1,20 @@
-from typing import List, Dict, Any, Set
-from historia.data.core.base import DataSource, TextDocument
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List, Set
+
+import wikipediaapi
 from django.db import transaction
-from historia.indexing.models import (
-    WikipediaDocument,
-    Index,
-    Embedding,
-    IndexedDocumentSnippet,
-)
+
+from historia.data.core.base import DataSource, TextDocument
 from historia.data.core.snipper import Snipper
+from historia.indexing.models import (Embedding, Index, IndexedDocumentSnippet,
+                                      WikipediaDocument)
 from historia.ml.embedder import Embedder
+
+wiki_wiki = wikipediaapi.Wikipedia(
+    user_agent="Historia", language="en", extract_format=wikipediaapi.ExtractFormat.WIKI
+)
+
+page_id_to_content = {}
 
 
 class WikipediaDataSource(DataSource):
@@ -24,31 +30,61 @@ class WikipediaDataSource(DataSource):
                 - topics (List[str]): A list of topics to fetch.
         """
         self.base_url = params.get("base_url", "https://en.wikipedia.org/wiki")
-        self.topics = params.get("topics", [])
-        if not self.topics:
-            raise ValueError("No topics specified for WikipediaDataSource.")
+        self.categories = params.get("categories", [])
+        self.depth = params.get("depth", 1)
+        if not self.categories:
+            raise ValueError("No categories specified for WikipediaDataSource.")
 
     def generate_urls(self) -> List[str]:
         """Generate a list of URLs for the given topics."""
-        urls = [f"{self.base_url}/{topic}" for topic in self.topics]
+
+        def get_categorymembers(categorymembers, level=0, max_level=1, results=None):
+            if results is None:
+                results = set()
+
+            for c in categorymembers.values():
+                if c.ns == wikipediaapi.Namespace.MAIN and c.exists():
+                    results.add(c)
+                elif c.ns == wikipediaapi.Namespace.CATEGORY and level < max_level:
+                    get_categorymembers(
+                        c.categorymembers,
+                        level=level + 1,
+                        max_level=max_level,
+                        results=results,
+                    )
+
+            return results
+
+        def process_category(category):
+            cat = wiki_wiki.page(category)
+            main_pages = get_categorymembers(cat.categorymembers)
+            page_id_to_content[cat.pageid] = cat.text
+            return [
+                f"https://en.wikipedia.org/?curid={page.pageid}" for page in main_pages
+            ]
+
+        with ThreadPoolExecutor() as executor:
+            url_lists = list(executor.map(process_category, self.categories))
+
+        urls = [url for sublist in url_lists for url in sublist]
         return urls
 
     def urls_to_text_documents(self, urls: List[str]) -> Set[TextDocument]:
         """
         Convert URLs to a set of TextDocuments.
-
-        Simulates content fetching for demonstration purposes.
         """
         documents = set()
         for url in urls:
             # Simulated content fetching for demonstration purposes
             content = f"Content fetched from {url}"
+            breakpoint()
             title = url.split("/")[-1].replace("_", " ").title()
             documents.add(
                 TextDocument(
                     title=title, content=content, metadata={"url": url}, url=url
                 )
             )
+
         return documents
 
     def write_documents_to_database(
