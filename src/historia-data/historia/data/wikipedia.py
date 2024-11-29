@@ -6,15 +6,21 @@ from django.db import transaction
 
 from historia.data.core.base import DataSource, TextDocument
 from historia.data.core.snipper import Snipper
-from historia.indexing.models import (Embedding, Index, IndexedDocumentSnippet,
-                                      WikipediaDocument)
+from historia.indexing.models import (
+    Embedding,
+    Index,
+    IndexedDocumentSnippet,
+    WikipediaDocument,
+)
 from historia.ml.embedder import Embedder
+
+PAGE_ID_URL_BASE = "https://en.wikipedia.org/?curid="
 
 wiki_wiki = wikipediaapi.Wikipedia(
     user_agent="Historia", language="en", extract_format=wikipediaapi.ExtractFormat.WIKI
 )
 
-page_id_to_content = {}
+page_url_to_content = {}
 
 
 class WikipediaDataSource(DataSource):
@@ -45,6 +51,7 @@ class WikipediaDataSource(DataSource):
             for c in categorymembers.values():
                 if c.ns == wikipediaapi.Namespace.MAIN and c.exists():
                     results.add(c)
+                    page_url_to_content[f"{PAGE_ID_URL_BASE}{c.pageid}"] = (c.title, c.text)
                 elif c.ns == wikipediaapi.Namespace.CATEGORY and level < max_level:
                     get_categorymembers(
                         c.categorymembers,
@@ -58,9 +65,8 @@ class WikipediaDataSource(DataSource):
         def process_category(category):
             cat = wiki_wiki.page(category)
             main_pages = get_categorymembers(cat.categorymembers)
-            page_id_to_content[cat.pageid] = cat.text
             return [
-                f"https://en.wikipedia.org/?curid={page.pageid}" for page in main_pages
+                f"{PAGE_ID_URL_BASE}{page.pageid}" for page in main_pages
             ]
 
         with ThreadPoolExecutor() as executor:
@@ -74,16 +80,14 @@ class WikipediaDataSource(DataSource):
         Convert URLs to a set of TextDocuments.
         """
         documents = set()
-        for url in urls:
-            # Simulated content fetching for demonstration purposes
-            content = f"Content fetched from {url}"
-            breakpoint()
-            title = url.split("/")[-1].replace("_", " ").title()
-            documents.add(
-                TextDocument(
-                    title=title, content=content, metadata={"url": url}, url=url
-                )
+        def create_document(url):
+            title, content = page_url_to_content[url]
+            return TextDocument(
+                title=title, content=content, metadata={"url": url}, url=url
             )
+
+        with ThreadPoolExecutor() as executor:
+            documents.update(executor.map(create_document, urls))
 
         return documents
 

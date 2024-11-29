@@ -16,6 +16,7 @@ historia-django-utils = { path = "../historia-django-utils" }
 django = "^5.1.3"
 pyyaml = "^6.0.2"
 wikipedia-api = "^0.7.1"
+apache-beam = "^2.61.0"
 
 
 [build-system]
