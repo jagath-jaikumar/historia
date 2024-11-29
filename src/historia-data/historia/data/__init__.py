@@ -1,7 +1,7 @@
 import datetime
 import logging
 import os
-from typing import Dict, Type, List, Callable, Optional, Tuple, Any
+from typing import Dict, Type, List, Callable, Optional, Tuple
 
 import apache_beam as beam
 import yaml
