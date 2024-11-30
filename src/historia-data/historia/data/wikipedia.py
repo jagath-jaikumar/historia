@@ -8,11 +8,11 @@ from django.db import transaction
 from historia.data.core.base import DataSource, TextDocument
 from historia.data.core.snipper import Snipper
 from historia.indexing.models import (
+    Document,
     Embedding,
     Index,
     IndexedDocumentSnippet,
     WikipediaDocument,
-    Document
 )
 from historia.ml.embedder import Embedder
 
@@ -20,7 +20,9 @@ from historia.ml.embedder import Embedder
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+)
 logger.addHandler(handler)
 
 PAGE_ID_URL_BASE = "https://en.wikipedia.org/?curid="
@@ -45,7 +47,9 @@ class WikipediaDataSource(DataSource):
                 - topics (List[str]): A list of topics to fetch.
         """
         self.base_url = params.get("base_url", "https://en.wikipedia.org/wiki")
-        self.categories = [f"Category:{category}" for category in params.get("categories", [])]
+        self.categories = [
+            f"Category:{category}" for category in params.get("categories", [])
+        ]
         self.depth = params.get("depth", 1)
         if not self.categories:
             raise ValueError("No categories specified for WikipediaDataSource.")
@@ -60,7 +64,9 @@ class WikipediaDataSource(DataSource):
             for c in categorymembers.values():
                 if c.ns == wikipediaapi.Namespace.MAIN and c.exists():
                     # Check if document already exists with same content
-                    existing_doc = WikipediaDocument.objects.filter(url=f"{PAGE_ID_URL_BASE}{c.pageid}").first()
+                    existing_doc = WikipediaDocument.objects.filter(
+                        url=f"{PAGE_ID_URL_BASE}{c.pageid}"
+                    ).first()
                     if not (existing_doc and existing_doc.content == c.text):
                         logger.info(f"Adding new Wikipedia page: {c.title}")
                         results.add(c)
@@ -125,7 +131,11 @@ class WikipediaDataSource(DataSource):
                 )
 
     def index_documents(
-        self, documents: Set[Document], index_name: str, snipper: Snipper, embedder: Embedder
+        self,
+        documents: Set[Document],
+        index_name: str,
+        snipper: Snipper,
+        embedder: Embedder,
     ):
         """
         Embed document snippets and write them to the database.

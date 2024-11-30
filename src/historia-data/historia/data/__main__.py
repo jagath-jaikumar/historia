@@ -32,7 +32,7 @@ def main():
     # Select entrypoint based on argument
     EntryPointClass = BeamEntryPoint if args.entrypoint == "beam" else DirectEntryPoint
     entry_point = EntryPointClass()
-    
+
     try:
         entry_point.run_pipeline(config_path=args.config, use_all=args.use_all)
     except Exception as e:

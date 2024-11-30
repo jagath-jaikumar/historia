@@ -12,15 +12,32 @@ from historia.django.utils import initialize_django
 
 initialize_django()
 
-from historia.data.core.base import DataSource, Snipper  # noqa E402
-from historia.data.core.snipper import SimpleSnipper  # noqa E402
-from historia.data.wikipedia import WikipediaDataSource  # noqa E402
-from historia.ml.embedder import DummyEmbedder, Embedder  # noqa E402
-from historia.indexing import models  # noqa E402
+from historia.data.core.base import DataSource, Snipper
+from historia.data.core.snipper import (
+    BasicParagraphSnipper,
+    SimpleSnipper,
+)
+from historia.data.wikipedia import WikipediaDataSource
+from historia.indexing import models
+from historia.ml.embedder import DummyEmbedder, Embedder
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_ROOT = os.path.join(HERE, "configs")
 YAML_FILE_EXTENSION = ".yaml"
+
+
+DATA_SOURCE_REGISTRY: Dict[str, Type[DataSource]] = {
+    "wikipedia": WikipediaDataSource,
+}
+
+SNIPPER_REGISTRY: Dict[str, Type[Snipper]] = {
+    "simple": SimpleSnipper,
+    "basic_paragraph": BasicParagraphSnipper,
+}
+
+EMBEDDER_REGISTRY: Dict[str, Type[Embedder]] = {
+    "dummy": DummyEmbedder,
+}
 
 
 def default_failure_callback(failed_urls: List[str], error: Exception, step: str):
@@ -98,18 +115,6 @@ class IndexDocumentFn(beam.DoFn):
 class PipelineEntryPoint:
     """Base entry point to manage DataSource ingestion and indexing pipelines."""
 
-    DATA_SOURCE_REGISTRY: Dict[str, Type[DataSource]] = {
-        "wikipedia": WikipediaDataSource,
-    }
-
-    SNIPPER_REGISTRY: Dict[str, Type[Snipper]] = {
-        "simple": SimpleSnipper,
-    }
-
-    EMBEDDER_REGISTRY: Dict[str, Type[Embedder]] = {
-        "dummy": DummyEmbedder,
-    }
-
     def __init__(
         self, max_retries: int = 3, failure_callback: Optional[Callable] = None
     ):
@@ -134,20 +139,20 @@ class PipelineEntryPoint:
     def initialize_data_source(self, config: Dict) -> "DataSource":
         """Initialize the data source based on the configuration."""
         data_source_name = config.get("data_source")
-        if not data_source_name or data_source_name not in self.DATA_SOURCE_REGISTRY:
+        if not data_source_name or data_source_name not in DATA_SOURCE_REGISTRY:
             raise Exception(f"Unknown or missing data source: {data_source_name}")
 
-        data_source_cls = self.DATA_SOURCE_REGISTRY[data_source_name]
+        data_source_cls = DATA_SOURCE_REGISTRY[data_source_name]
         self.logger.info(f"Initializing DataSource: {data_source_name}")
         return data_source_cls(config.get("data_source_params", {}))
 
     def initialize_snipper(self, config: Dict) -> Snipper:
         """Initialize the snipper based on the configuration."""
         snipper_name = config.get("snipper", {}).get("type")
-        if not snipper_name or snipper_name not in self.SNIPPER_REGISTRY:
+        if not snipper_name or snipper_name not in SNIPPER_REGISTRY:
             raise Exception(f"Unknown or missing snipper: {snipper_name}")
 
-        snipper_cls = self.SNIPPER_REGISTRY[snipper_name]
+        snipper_cls = SNIPPER_REGISTRY[snipper_name]
         snipper_params = config.get("snipper", {}).get("params", {})
         self.logger.info(f"Initializing Snipper: {snipper_name}")
         return snipper_cls(**snipper_params)
@@ -155,10 +160,10 @@ class PipelineEntryPoint:
     def initialize_embedder(self, config: Dict) -> Embedder:
         """Initialize the embedder based on the configuration."""
         embedder_name = config.get("embedder", {}).get("type")
-        if not embedder_name or embedder_name not in self.EMBEDDER_REGISTRY:
+        if not embedder_name or embedder_name not in EMBEDDER_REGISTRY:
             raise Exception(f"Unknown or missing embedder: {embedder_name}")
 
-        embedder_cls = self.EMBEDDER_REGISTRY[embedder_name]
+        embedder_cls = EMBEDDER_REGISTRY[embedder_name]
         embedder_params = config.get("embedder", {}).get("params", {})
         self.logger.info(f"Initializing Embedder: {embedder_name}")
         return embedder_cls(**embedder_params)
@@ -168,13 +173,14 @@ class PipelineEntryPoint:
             failed_urls = [f[0] for f in failures]
             error = Exception(f"Failed during {step}: {failures[0][1]}")
             self.failure_callback(failed_urls, error, step)
-    
+
     def get_document_data_model(self, config: Dict) -> Type[models.Document]:
         document_data_model = config.get("document_data_model", "Document")
         return getattr(models, document_data_model)
 
-
-    def get_documents_to_index(self, urls: List[str], document_data_model: Type[models.Document]) -> set[models.Document]:
+    def get_documents_to_index(
+        self, urls: List[str], document_data_model: Type[models.Document]
+    ) -> set[models.Document]:
         docs = document_data_model.objects.filter(url__in=urls)
         return set(docs)
 
@@ -193,7 +199,6 @@ class BeamEntryPoint(PipelineEntryPoint):
         snipper = self.initialize_snipper(config)
         embedder = self.initialize_embedder(config)
         index_name = config.get("index_name")
-        document_data_model = self.get_document_data_model(config)
 
         if not index_name:
             raise Exception("Missing index name in configuration.")
@@ -234,8 +239,10 @@ class BeamEntryPoint(PipelineEntryPoint):
             # Get all documents to index and chunk them
             documents_to_index = (
                 successful_docs
-                | "Get Documents to Index" >> beam.Map(lambda x: self.get_documents_to_index(x))
-                | "Chunk Documents" >> beam.transforms.util.BatchElements(
+                | "Get Documents to Index"
+                >> beam.Map(lambda x: self.get_documents_to_index(x))
+                | "Chunk Documents"
+                >> beam.transforms.util.BatchElements(
                     min_batch_size=100, max_batch_size=1000
                 )
             )
@@ -271,7 +278,7 @@ class BeamEntryPoint(PipelineEntryPoint):
 
 class DirectEntryPoint(PipelineEntryPoint):
     """Direct sequential pipeline implementation for debugging."""
-    
+
     def run_pipeline(self, config_path: str, use_all: bool):
         """Runs the ingestion and indexing pipeline sequentially."""
         self.logger.info(f"Starting pipeline with config from {config_path}")
@@ -280,7 +287,6 @@ class DirectEntryPoint(PipelineEntryPoint):
         snipper = self.initialize_snipper(config)
         embedder = self.initialize_embedder(config)
         index_name = config.get("index_name")
-        document_data_model = self.get_document_data_model(config)
 
         if not index_name:
             raise Exception("Missing index name in configuration.")
@@ -304,45 +310,55 @@ class DirectEntryPoint(PipelineEntryPoint):
             try:
                 # Convert URL to document
                 docs = data_source.urls_to_text_documents([url])
-                self.logger.debug(f"Successfully extracted {len(docs)} documents from {url}")
-                
+                self.logger.debug(
+                    f"Successfully extracted {len(docs)} documents from {url}"
+                )
+
                 for doc in docs:
                     try:
                         # Write to database
                         self.logger.debug(f"Writing document {doc.url} to database")
                         data_source.write_documents_to_database({doc})
                         self.logger.debug(f"Successfully wrote {doc.url} to database")
-                        
+
                         try:
                             # Index document
                             self.logger.debug(f"Indexing document {doc.url}")
-                            documents_to_index = self.get_documents_to_index([doc.url], document_data_model)
+                            documents_to_index = self.get_documents_to_index(
+                                [doc.url], self.get_document_data_model(config)
+                            )
                             data_source.index_documents(
                                 documents_to_index, index_name, snipper, embedder
                             )
                             self.logger.debug(f"Successfully indexed {doc.url}")
                         except Exception as e:
-                            self.logger.error(f"Failed to index document {doc.url}: {str(e)}")
+                            self.logger.error(
+                                f"Failed to index document {doc.url}: {str(e)}"
+                            )
                             index_failures.append((doc.url, str(e)))
-                            
+
                     except Exception as e:
-                        self.logger.error(f"Failed to write document {doc.url} to database: {str(e)}")
+                        self.logger.error(
+                            f"Failed to write document {doc.url} to database: {str(e)}"
+                        )
                         db_failures.append((doc.url, str(e)))
-                        
+
             except Exception as e:
                 self.logger.error(f"Failed to process URL {url}: {str(e)}")
                 url_failures.append((url, str(e)))
 
         # Handle all failures
-        self.logger.info(f"Processing complete. Processing results:")
+        self.logger.info("Processing complete. Processing results:")
         self.logger.info(f"Processed {processed_count} URLs total")
         self.handle_failures(url_failures, "url_to_documents")
-        self.handle_failures(db_failures, "write_documents") 
+        self.handle_failures(db_failures, "write_documents")
         self.handle_failures(index_failures, "indexing")
 
         total_failures = len(url_failures) + len(db_failures) + len(index_failures)
         if total_failures > 0:
-            self.logger.info(f"Pipeline completed with {total_failures} total failures:")
+            self.logger.info(
+                f"Pipeline completed with {total_failures} total failures:"
+            )
             self.logger.info(f"- URL processing failures: {len(url_failures)}")
             self.logger.info(f"- Database write failures: {len(db_failures)}")
             self.logger.info(f"- Indexing failures: {len(index_failures)}")
