@@ -1,6 +1,6 @@
 import argparse
 
-from .__init__ import EntryPoint
+from .__init__ import BeamEntryPoint, DirectEntryPoint
 
 
 def main():
@@ -20,15 +20,21 @@ def main():
         help="Use all URLs instead only new ones.",
     )
     parser.add_argument(
-        "--no-db",
-        action="store_true",
-        help="Log database transactions instead of executing them.",
+        "--entrypoint",
+        "-e",
+        type=str,
+        choices=["beam", "direct"],
+        default="beam",
+        help="Entrypoint to use (beam or direct). Defaults to beam.",
     )
     args = parser.parse_args()
 
-    entry_point = EntryPoint()
+    # Select entrypoint based on argument
+    EntryPointClass = BeamEntryPoint if args.entrypoint == "beam" else DirectEntryPoint
+    entry_point = EntryPointClass()
+    
     try:
-        entry_point.run_pipeline(config_path=args.config, use_all=args.use_all,no_db=args.no_db)
+        entry_point.run_pipeline(config_path=args.config, use_all=args.use_all)
     except Exception as e:
         print(f"Pipeline execution failed: {e}")
 

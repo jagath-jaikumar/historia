@@ -1,4 +1,5 @@
 data_source: wikipedia
+document_data_model: WikipediaDocument
 data_source_params:
   base_url: "https://en.wikipedia.org/wiki"
   categories:

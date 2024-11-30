@@ -11,6 +11,7 @@ from historia.indexing.models import (
     Index,
     IndexedDocumentSnippet,
     WikipediaDocument,
+    Document
 )
 from historia.ml.embedder import Embedder
 
@@ -41,7 +42,7 @@ class WikipediaDataSource(DataSource):
         if not self.categories:
             raise ValueError("No categories specified for WikipediaDataSource.")
 
-    def generate_urls(self, use_all: bool = False,no_db: bool = False) -> List[str]:
+    def generate_urls(self, use_all: bool = False) -> List[str]:
         """Generate a list of URLs for the given topics."""
 
         def get_categorymembers(categorymembers, level=0, max_level=1, results=None):
@@ -54,10 +55,10 @@ class WikipediaDataSource(DataSource):
                     existing_doc = WikipediaDocument.objects.filter(url=f"{PAGE_ID_URL_BASE}{c.pageid}").first()
                     if not (existing_doc and existing_doc.content == c.text):
                         results.add(c)
-                    page_url_to_content[f"{PAGE_ID_URL_BASE}{c.pageid}"] = (
-                        c.title,
-                        c.text,
-                    )
+                        page_url_to_content[f"{PAGE_ID_URL_BASE}{c.pageid}"] = (
+                            c.title,
+                            c.text,
+                        )
                 elif c.ns == wikipediaapi.Namespace.CATEGORY and level < max_level:
                     get_categorymembers(
                         c.categorymembers,
@@ -96,63 +97,51 @@ class WikipediaDataSource(DataSource):
 
         return documents
 
-    def write_documents_to_database(
-        self, documents: Set[TextDocument], no_db: bool = False
-    ):
+    def write_documents_to_database(self, documents: Set[TextDocument]):
         """
-        Write TextDocuments to the database or log transactions if `no_db` is True.
+        Write TextDocuments to the database.
 
         Args:
             documents (Set[TextDocument]): A set of TextDocument objects to store.
-            no_db (bool): If True, log database actions instead of executing them.
         """
-        if no_db:
+        with transaction.atomic():
             for doc in documents:
-                print(f"[NO-DB] Would write to WikipediaDocument: {doc}")
-        else:
-            with transaction.atomic():
-                for doc in documents:
-                    WikipediaDocument.objects.update_or_create(
-                        url=doc.url,
-                        defaults={
-                            "title": doc.title,
-                            "content": doc.content,
-                            "metadata": doc.metadata,
-                        },
-                    )
+                WikipediaDocument.objects.update_or_create(
+                    url=doc.url,
+                    defaults={
+                        "title": doc.title,
+                        "content": doc.content,
+                        "metadata": doc.metadata,
+                    },
+                )
 
     def index_documents(
-        self, index_name: str, snipper: Snipper, embedder: Embedder, no_db: bool = False
+        self, documents: Set[Document], index_name: str, snipper: Snipper, embedder: Embedder
     ):
         """
-        Embed document snippets and write them to the database or log transactions if `no_db` is True.
+        Embed document snippets and write them to the database.
 
         Args:
             index_name (str): The name of the index.
             snipper (Snipper): A Snipper object to generate snippets from document content.
             embedder (Embedder): An Embedder object to generate embeddings for snippets.
-            no_db (bool): If True, log database actions instead of executing them.
         """
-        if no_db:
-            print(f"[NO-DB] Would index documents in index: {index_name}")
-        else:
-            index, _ = Index.objects.get_or_create(
-                name=index_name, defaults={"dimensions": 768}
-            )
-            documents = WikipediaDocument.objects.all()
+        index, _ = Index.objects.get_or_create(
+            name=index_name, defaults={"dimensions": 768}
+        )
 
-            with transaction.atomic():
-                for doc in documents:
-                    snippets = list(snipper.generate_snippets(doc.content))
-                    embeddings = embedder.embed(snippets)
+        with transaction.atomic():
+            for doc in documents:
+                snippets = list(snipper.generate_snippets(doc.content))
+                embeddings = embedder.embed(snippets)
 
-                    for snippet, embedding in zip(snippets, embeddings):
-                        embedding_instance = Embedding.objects.create(
-                            embedding=embedding, dimensions=len(embedding)
-                        )
-                        IndexedDocumentSnippet.objects.create(
-                            index=index,
-                            document=doc,
-                            snippet=snippet,
-                            embedding=embedding_instance,
-                        )
+                for snippet, embedding in zip(snippets, embeddings):
+                    embedding_instance = Embedding.objects.create(
+                        embedding=embedding, dimensions=len(embedding)
+                    )
+                    IndexedDocumentSnippet.objects.create(
+                        index=index,
+                        document=doc,
+                        snippet=snippet,
+                        embedding=embedding_instance,
+                    )
