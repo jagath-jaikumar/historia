@@ -36,12 +36,12 @@ class WikipediaDataSource(DataSource):
                 - topics (List[str]): A list of topics to fetch.
         """
         self.base_url = params.get("base_url", "https://en.wikipedia.org/wiki")
-        self.categories = params.get("categories", [])
+        self.categories = [f"Category:{category}" for category in params.get("categories", [])]
         self.depth = params.get("depth", 1)
         if not self.categories:
             raise ValueError("No categories specified for WikipediaDataSource.")
 
-    def generate_urls(self) -> List[str]:
+    def generate_urls(self, use_all: bool = False,no_db: bool = False) -> List[str]:
         """Generate a list of URLs for the given topics."""
 
         def get_categorymembers(categorymembers, level=0, max_level=1, results=None):
@@ -50,7 +50,10 @@ class WikipediaDataSource(DataSource):
 
             for c in categorymembers.values():
                 if c.ns == wikipediaapi.Namespace.MAIN and c.exists():
-                    results.add(c)
+                    # Check if document already exists with same content
+                    existing_doc = WikipediaDocument.objects.filter(url=f"{PAGE_ID_URL_BASE}{c.pageid}").first()
+                    if not (existing_doc and existing_doc.content == c.text):
+                        results.add(c)
                     page_url_to_content[f"{PAGE_ID_URL_BASE}{c.pageid}"] = (
                         c.title,
                         c.text,

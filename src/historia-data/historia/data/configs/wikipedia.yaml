@@ -2,7 +2,7 @@ data_source: wikipedia
 data_source_params:
   base_url: "https://en.wikipedia.org/wiki"
   categories:
-    - Category:American Revolution
+    - Boston Massacre
   depth: 1
 
 snipper:

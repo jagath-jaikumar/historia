@@ -34,11 +34,13 @@ def default_failure_callback(failed_urls: List[str], error: Exception, step: str
 
 
 class GenerateUrlsFn(beam.DoFn):
-    def __init__(self, data_source: DataSource):
+    def __init__(self, data_source: DataSource, use_all: bool = False, no_db: bool = False):
         self.data_source = data_source
+        self.use_all = use_all
+        self.no_db = no_db
 
     def process(self, _):
-        urls = self.data_source.generate_urls()
+        urls = self.data_source.generate_urls(use_all=self.use_all, no_db=self.no_db)
         for url in urls:
             yield url
 
@@ -168,7 +170,7 @@ class EntryPoint:
             error = Exception(f"Failed during {step}: {failures[0][1]}")
             self.failure_callback(failed_urls, error, step)
 
-    def run_pipeline(self, config_path: str, no_db: bool):
+    def run_pipeline(self, config_path: str, use_all: bool, no_db: bool):
         """Runs the ingestion and indexing pipeline using Apache Beam."""
         config = self.load_config(config_path)
         data_source = self.initialize_data_source(config)
@@ -187,7 +189,7 @@ class EntryPoint:
             urls = (
                 p
                 | "Create" >> beam.Create([None])
-                | "Generate URLs" >> beam.ParDo(GenerateUrlsFn(data_source))
+                | "Generate URLs" >> beam.ParDo(GenerateUrlsFn(data_source, use_all, no_db))
             )
 
             # Convert URLs to documents

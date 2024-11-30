@@ -15,6 +15,11 @@ def main():
         help="Path to the YAML configuration file.",
     )
     parser.add_argument(
+        "--use-all",
+        action="store_true",
+        help="Use all URLs instead only new ones.",
+    )
+    parser.add_argument(
         "--no-db",
         action="store_true",
         help="Log database transactions instead of executing them.",
@@ -23,7 +28,7 @@ def main():
 
     entry_point = EntryPoint()
     try:
-        entry_point.run_pipeline(config_path=args.config, no_db=args.no_db)
+        entry_point.run_pipeline(config_path=args.config, use_all=args.use_all,no_db=args.no_db)
     except Exception as e:
         print(f"Pipeline execution failed: {e}")
 
