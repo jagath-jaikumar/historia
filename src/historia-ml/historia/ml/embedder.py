@@ -28,10 +28,18 @@ class OllamaEmbedder(Embedder):
 
     def embed(self, texts: str | List[str]) -> List[List[float]]:
         if isinstance(texts, str):
-            return ollama.embeddings(model=self.model, prompt=texts)
+            response = ollama.embeddings(model=self.model, prompt=texts)
+            return [response.embedding]
 
         embeddings = []
         for text in texts:
             embedding = ollama.embeddings(model=self.model, prompt=text)
             embeddings.extend(embedding)
         return embeddings
+
+
+if __name__ == "__main__":
+    embedder = OllamaEmbedder()
+    embedding = embedder.embed("Hello, world!")
+    print(embedding)
+    print(len(embedding[0]))
