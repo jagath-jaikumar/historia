@@ -10,7 +10,7 @@ data_source_params:
 snipper:
   type: basic_paragraph
   params:
-    snippet_length: 512
+    max_tokens: 512
 
 embedder:
   type: ollama
