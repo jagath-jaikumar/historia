@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import traceback
+import time
 from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import apache_beam as beam
@@ -178,9 +179,9 @@ class PipelineEntryPoint:
 
     def get_documents_to_index(
         self, urls: List[str], document_data_model: Type[models.Document]
-    ) -> set[models.Document]:
+    ) -> list[models.Document]:
         docs = document_data_model.objects.filter(url__in=urls)
-        return set(docs)
+        return list(docs)
 
     def run_pipeline(self, config_path: str, use_all: bool):
         """Abstract method to be implemented by subclasses."""
@@ -236,9 +237,9 @@ class BeamEntryPoint(PipelineEntryPoint):
 
             # Get all documents to index and chunk them
             documents_to_index = (
-                successful_docs
-                | "Get Documents to Index"
-                >> beam.Map(lambda x: self.get_documents_to_index(x))
+                urls
+                | "Get Documents to Index" 
+                >> beam.FlatMap(lambda x: self.get_documents_to_index(x, self.get_document_data_model(config)))
                 | "Chunk Documents"
                 >> beam.transforms.util.BatchElements(
                     min_batch_size=100, max_batch_size=1000
@@ -256,9 +257,13 @@ class BeamEntryPoint(PipelineEntryPoint):
             )
 
             # Handle failures after pipeline completion
-            def handle_all_failures(url_fails, db_fails, index_fails):
+            def handle_all_failures(element):
+                url_fails = list(element[0]) if element[0] else []
+                db_fails = list(element[1]) if element[1] else []
+                index_fails = list(element[2]) if element[2] else []
+                
                 self.handle_failures(url_fails, "url_to_documents")
-                self.handle_failures(db_fails, "write_documents")
+                self.handle_failures(db_fails, "write_documents") 
                 self.handle_failures(index_fails, "indexing")
 
                 total_failures = len(url_fails) + len(db_fails) + len(index_fails)
@@ -268,9 +273,13 @@ class BeamEntryPoint(PipelineEntryPoint):
                     self.logger.info("Pipeline completed successfully")
 
             _ = (
-                (url_failures, db_failures, index_failures)
+                {
+                    'url_fails': url_failures,
+                    'db_fails': db_failures, 
+                    'index_fails': index_failures
+                }
                 | "Combine Failures" >> beam.CoGroupByKey()
-                | "Handle Failures" >> beam.Map(lambda x: handle_all_failures(*x))
+                | "Handle Failures" >> beam.Map(handle_all_failures)
             )
 
 
@@ -279,6 +288,8 @@ class DirectEntryPoint(PipelineEntryPoint):
 
     def run_pipeline(self, config_path: str, use_all: bool):
         """Runs the ingestion and indexing pipeline sequentially."""
+        start_time = time.time()
+        
         self.logger.info(f"Starting pipeline with config from {config_path}")
         config = self.load_config(config_path)
         data_source = self.initialize_data_source(config)
@@ -294,13 +305,16 @@ class DirectEntryPoint(PipelineEntryPoint):
         index_failures = []
 
         # Generate URLs
+        url_gen_start = time.time()
         self.logger.info("Generating URLs...")
         urls = data_source.generate_urls(use_all=use_all)
         url_count = sum(1 for _ in urls)  # Count URLs without consuming generator
         urls = data_source.generate_urls(use_all=use_all)  # Regenerate
+        url_gen_time = time.time() - url_gen_start
         self.logger.info(f"Found {url_count} URLs to process")
 
         # Process each URL sequentially
+        process_start = time.time()
         processed_count = 0
         for url in urls:
             processed_count += 1
@@ -345,6 +359,9 @@ class DirectEntryPoint(PipelineEntryPoint):
                 self.logger.error(f"Failed to process URL {url}: {str(e)}")
                 url_failures.append((url, str(e)))
 
+        process_time = time.time() - process_start
+        total_time = time.time() - start_time
+
         # Handle all failures
         self.logger.info("Processing complete. Processing results:")
         self.logger.info(f"Processed {processed_count} URLs total")
@@ -362,3 +379,9 @@ class DirectEntryPoint(PipelineEntryPoint):
             self.logger.info(f"- Indexing failures: {len(index_failures)}")
         else:
             self.logger.info("Pipeline completed successfully with no failures")
+
+        # Log timing information
+        self.logger.info("\nTiming Information:")
+        self.logger.info(f"URL Generation time: {url_gen_time:.2f} seconds")
+        self.logger.info(f"Processing time: {process_time:.2f} seconds")
+        self.logger.info(f"Total runtime: {total_time:.2f} seconds")

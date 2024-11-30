@@ -9,6 +9,7 @@ data_source_params:
 snipper:
   type: basic_paragraph
   params:
+    min_tokens: 200
     max_tokens: 512
 
 embedder:

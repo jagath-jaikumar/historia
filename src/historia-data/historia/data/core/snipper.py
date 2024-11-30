@@ -30,24 +30,30 @@ class SimpleSnipper(Snipper):
 class BasicParagraphSnipper(Snipper):
     """A snipper that generates snippets based on paragraphs and sentences."""
 
-    def __init__(self, max_tokens: int = 200):
+    def __init__(self, max_tokens: int = 200, min_tokens: int | None = None):
         self.max_tokens = max_tokens
+        self.min_tokens = min_tokens if min_tokens is not None else max_tokens // 2
 
-    def _find_sentence_boundary(self, text: str, max_pos: int) -> int:
-        """Find the closest sentence boundary before max_pos."""
+    def _find_sentence_boundary(self, text: str, max_pos: int, min_pos: int = 0) -> int:
+        """Find the closest sentence boundary before max_pos but after min_pos."""
         sentence_endings = [". ", "! ", "? "]
         best_pos = 0
 
-        for i in range(min(max_pos, len(text))):
+        # First try to find sentence boundary between min and max
+        for i in range(min_pos, min(max_pos, len(text))):
             if text[i : i + 2] in sentence_endings:
                 best_pos = i + 2
-            elif i == max_pos - 1:
-                # If we can't find a sentence ending, back up to last space
-                space_pos = text[:max_pos].rfind(" ")
-                if space_pos > 0:
-                    best_pos = space_pos + 1
+                if best_pos >= min_pos:
+                    return best_pos
 
-        return best_pos if best_pos > 0 else max_pos
+        # If we can't find a suitable sentence ending, try space
+        if max_pos - 1 >= min_pos:
+            space_pos = text[min_pos:max_pos].rfind(" ")
+            if space_pos > 0:
+                best_pos = min_pos + space_pos + 1
+
+        # If we still haven't found a good boundary, use max_pos
+        return best_pos if best_pos >= min_pos else max_pos
 
     def generate_snippets(self, content: str) -> Generator[str, None, None]:
         """Generate snippets by paragraphs, falling back to sentences if needed."""
@@ -60,7 +66,8 @@ class BasicParagraphSnipper(Snipper):
             if next_para != -1:
                 # Found paragraph boundary within limit
                 snippet = content[current_pos:next_para].strip()
-                if snippet:  # Only yield non-empty snippets
+                # Only yield if snippet meets min_tokens requirement
+                if snippet and len(snippet.split()) >= self.min_tokens:
                     yield snippet
                 current_pos = next_para + 2
             else:
@@ -69,6 +76,7 @@ class BasicParagraphSnipper(Snipper):
                     content[current_pos:], self.max_tokens
                 )
                 snippet = content[current_pos : current_pos + next_pos].strip()
-                if snippet:  # Only yield non-empty snippets
+                # Only yield if snippet meets min_tokens requirement
+                if snippet and len(snippet.split()) >= self.min_tokens:
                     yield snippet
                 current_pos += next_pos

@@ -30,8 +30,11 @@ def main():
     args = parser.parse_args()
 
     # Select entrypoint based on argument
-    EntryPointClass = BeamEntryPoint if args.entrypoint == "beam" else DirectEntryPoint
-    entry_point = EntryPointClass()
+    if args.entrypoint == "beam":
+        print("BeamEntryPoint is currently not working. Please use --entrypoint direct instead.")
+        return
+        
+    entry_point = DirectEntryPoint()
 
     try:
         entry_point.run_pipeline(config_path=args.config, use_all=args.use_all)
