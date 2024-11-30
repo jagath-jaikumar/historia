@@ -155,7 +155,6 @@ class WikipediaDataSource(DataSource):
                 embeddings = embedder.embed(snippets)
 
                 for snippet, embedding in zip(snippets, embeddings):
-                    breakpoint()
                     embedding_instance = Embedding.objects.create(
                         embedding=embedding, dimensions=len(embedding)
                     )

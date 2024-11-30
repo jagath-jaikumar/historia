@@ -17,6 +17,8 @@ class DummyEmbedder(Embedder):
     """Dummy embedder for testing."""
 
     def embed(self, texts: str | List[str]) -> List[List[float]]:
+        if isinstance(texts, str):
+            return [[0.0] * 768]
         return [[0.0] * 768] * len(texts)
 
 
