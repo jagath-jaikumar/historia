@@ -1,3 +1,4 @@
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Set
 
@@ -14,6 +15,13 @@ from historia.indexing.models import (
     Document
 )
 from historia.ml.embedder import Embedder
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(handler)
 
 PAGE_ID_URL_BASE = "https://en.wikipedia.org/?curid="
 
@@ -54,6 +62,7 @@ class WikipediaDataSource(DataSource):
                     # Check if document already exists with same content
                     existing_doc = WikipediaDocument.objects.filter(url=f"{PAGE_ID_URL_BASE}{c.pageid}").first()
                     if not (existing_doc and existing_doc.content == c.text):
+                        logger.info(f"Adding new Wikipedia page: {c.title}")
                         results.add(c)
                         page_url_to_content[f"{PAGE_ID_URL_BASE}{c.pageid}"] = (
                             c.title,

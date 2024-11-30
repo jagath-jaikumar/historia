@@ -174,7 +174,7 @@ class PipelineEntryPoint:
         return getattr(models, document_data_model)
 
 
-    def get_documents_to_index(self, urls: List[str], document_data_model: Type[models.Document]) -> Set[models.Document]:
+    def get_documents_to_index(self, urls: List[str], document_data_model: Type[models.Document]) -> set[models.Document]:
         docs = document_data_model.objects.filter(url__in=urls)
         return set(docs)
 

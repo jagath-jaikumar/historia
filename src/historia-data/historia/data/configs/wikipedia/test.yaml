@@ -14,4 +14,4 @@ snipper:
 embedder:
   type: dummy
 
-index_name: wiki-index
+index_name: wiki-test
