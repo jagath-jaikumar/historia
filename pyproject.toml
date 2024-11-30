@@ -24,6 +24,7 @@ django-extensions = "^3.2.3"
 [tool.poetry.group.data.dependencies]
 historia-data = { path = "src/historia-data", develop = true }
 
+
 [tool.poetry.group.serve.dependencies]
 gunicorn = "*"
 
@@ -36,3 +37,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 lint.ignore = ["E402"]
+lint.extend-select = ["I"]

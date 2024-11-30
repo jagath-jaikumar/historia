@@ -13,13 +13,10 @@ from historia.django.utils import initialize_django
 initialize_django()
 
 from historia.data.core.base import DataSource, Snipper
-from historia.data.core.snipper import (
-    BasicParagraphSnipper,
-    SimpleSnipper,
-)
+from historia.data.core.snipper import BasicParagraphSnipper, SimpleSnipper
 from historia.data.wikipedia import WikipediaDataSource
 from historia.indexing import models
-from historia.ml.embedder import DummyEmbedder, Embedder
+from historia.ml.embedder import DummyEmbedder, Embedder, OllamaEmbedder
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_ROOT = os.path.join(HERE, "configs")
@@ -37,6 +34,7 @@ SNIPPER_REGISTRY: Dict[str, Type[Snipper]] = {
 
 EMBEDDER_REGISTRY: Dict[str, Type[Embedder]] = {
     "dummy": DummyEmbedder,
+    "ollama": OllamaEmbedder,
 }
 
 

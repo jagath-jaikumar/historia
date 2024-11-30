@@ -7,11 +7,13 @@ data_source_params:
   depth: 1
 
 snipper:
-  type: simple
+  type: basic_paragraph
   params:
-    snippet_length: 300
+    snippet_length: 512
 
 embedder:
-  type: dummy
+  type: ollama
+  params:
+    model: "nomic-embed-text"
 
 index_name: wiki-test
