@@ -34,7 +34,7 @@ class OllamaEmbedder(Embedder):
         embeddings = []
         for text in texts:
             response = ollama.embeddings(model=self.model, prompt=text)
-            embeddings.extend(response.embedding)
+            embeddings.append(response.embedding)
         return embeddings
 
 
