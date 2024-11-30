@@ -1,6 +1,8 @@
-from .settings import *  # noqa: F403
-import environ
 import os
+
+import environ
+
+from .settings import *  # noqa: F403
 
 env = environ.Env(
     # set casting, default value

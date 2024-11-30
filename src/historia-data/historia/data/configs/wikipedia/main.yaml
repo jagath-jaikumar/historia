@@ -1,0 +1,20 @@
+data_source: wikipedia
+document_data_model: WikipediaDocument
+data_source_params:
+  base_url: "https://en.wikipedia.org/wiki"
+  categories:
+    - American Revolution
+    - 
+  depth: 1
+
+snipper:
+  type: basic_paragraph
+  params:
+    max_tokens: 512
+
+embedder:
+  type: ollama
+  params:
+    model: "nomic-embed-text"
+
+index_name: wiki-test

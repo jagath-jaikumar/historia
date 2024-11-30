@@ -7,10 +7,13 @@ class Document(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    url = models.URLField(unique=True)
+
+    def cite(self):
+        return f"<a href='{self.url}'>{self.title}</a> ({self.created_at})"
 
 
 class WikipediaDocument(Document):
-    url = models.URLField(unique=True)
     metadata = models.JSONField(default=dict)
 
 
